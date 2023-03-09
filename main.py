@@ -13,13 +13,11 @@ print("Fine-tuning GPT-2")
 
 checkpoint = "gpt2"
 tokenizer = AutoTokenizer.from_pretrained(checkpoint)
-model = AutoModelForCausalLM.from_pretrained(checkpoint, pad_token_id=tokenizer.eos_token_id)
+model = AutoModelForCausalLM.from_pretrained(checkpoint)
 
 ##### PREPARING THE DATA #####
 print("Preparing the Data")
 raw_datasets = load_dataset("reddit", split="train[:85%]")
-train_data, val_data = train_test_split(raw_datasets, test_size=0.15, random_state = 42)
-
 
 print("Column Names: ", raw_datasets.column_names)
 
@@ -49,8 +47,7 @@ def compute_metrics(eval_preds):
 trainer = Trainer(
     model,
     training_args,
-    train_dataset=tokenized_datasets["train"],
-    eval_dataset=tokenized_datasets["validation"],
+    tokenized_datasets,
     data_collator=data_collator,
     tokenizer=tokenizer,
     compute_metrics=compute_metrics, )
