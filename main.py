@@ -2,7 +2,6 @@ import torch
 import numpy as np
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from datasets import load_dataset
-from sklearn.model_selection import train_test_split
 from transformers import DataCollatorWithPadding
 from transformers import TrainingArguments
 from transformers import Trainer
@@ -13,11 +12,12 @@ print("Fine-tuning GPT-2")
 
 checkpoint = "gpt2"
 tokenizer = AutoTokenizer.from_pretrained(checkpoint)
+tokenizer.pad_token = tokenizer.eos_token
 model = AutoModelForCausalLM.from_pretrained(checkpoint)
 
 ##### PREPARING THE DATA #####
 print("Preparing the Data")
-raw_datasets = load_dataset("reddit", split="train[:85%]")
+raw_datasets = load_dataset("reddit", split="train[:50%]")
 
 print("Column Names: ", raw_datasets.column_names)
 
@@ -47,9 +47,11 @@ def compute_metrics(eval_preds):
 trainer = Trainer(
     model,
     training_args,
-    tokenized_datasets,
+    train_dataset=tokenized_datasets,
     data_collator=data_collator,
     tokenizer=tokenizer,
-    compute_metrics=compute_metrics, )
+    compute_metrics=compute_metrics)
 
 trainer.train()
+
+trainer.evaluate(tokenized_datasets)
