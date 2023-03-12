@@ -1,57 +1,76 @@
-import torch
-import numpy as np
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from datasets import load_dataset
-from transformers import DataCollatorWithPadding
-from transformers import TrainingArguments
-from transformers import Trainer
-import evaluate
+from transformers import TrainingArguments, Trainer
+import math
+
 
 ##### FINE-TUNING A PRE-TRAINED MODEL #####
 print("Fine-tuning GPT-2")
 
-checkpoint = "gpt2"
-tokenizer = AutoTokenizer.from_pretrained(checkpoint)
-tokenizer.pad_token = tokenizer.eos_token
+checkpoint = "distilgpt2"
+tokenizer = AutoTokenizer.from_pretrained(checkpoint, use_fast=True, max_length=10)
 model = AutoModelForCausalLM.from_pretrained(checkpoint)
 
 ##### PREPARING THE DATA #####
 print("Preparing the Data")
-raw_datasets = load_dataset("reddit", split="train[:50%]")
 
-print("Column Names: ", raw_datasets.column_names)
+raw_datasets = load_dataset("reddit", split="train[:5%]")
+features = raw_datasets.column_names
+
+print("Features: ", features)
 
 print("Tokenizing the Data")
 
 def tokenize_function(example):
-    return tokenizer(example["subreddit"], example["content"], truncation=True)
+    return tokenizer(example["subreddit"], example["content"])
 
-tokenized_datasets = raw_datasets.map(tokenize_function, batched=True)
+tokenized_datasets = raw_datasets.map(tokenize_function, batched=True, num_proc=4, remove_columns=features)
 
-data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+block_size = tokenizer.model_max_length
+
+def group_texts(examples):
+    # Concatenate all texts.
+    concatenated_examples = {k: sum([ex for ex in examples[k] if isinstance(ex, list)], []) for k in examples.keys()}
+    total_length = len(concatenated_examples[list(examples.keys())[0]])
+    # We drop the small remainder, we could add padding if the model supported it instead of this drop, you can
+        # customize this part to your needs.
+    total_length = (total_length // block_size) * block_size
+    # Split by chunks of max_len.
+    result = {
+        k: [t[i : i + block_size] for i in range(0, total_length, block_size)]
+        for k, t in concatenated_examples.items()
+    }
+    result["labels"] = result["input_ids"].copy()
+    return result
+
+lm_datasets = tokenized_datasets.map(
+    group_texts,
+    batched=True,
+    batch_size=1000,
+    num_proc=4,
+)
+
+tokenizer.decode(lm_datasets[1]["input_ids"])
 
 print("Training")
-training_args = TrainingArguments("gpt2-reddit-trainer",
-                                  num_train_epochs=1,
-                                  evaluation_strategy="steps",
-                                  eval_steps=100)
 
-
-def compute_metrics(eval_preds):
-    metric = evaluate.load("reddit")
-    logits, labels = eval_preds
-    predictions = np.argmax(logits, axis=-1)
-    return metric.compute(predictions=predictions, references=labels)
-
+model_name = checkpoint.split("/")[-1]
+training_args = TrainingArguments(
+    f"{model_name}-finetuned-reddit",
+    evaluation_strategy = "epoch",
+    learning_rate=2e-5,
+    weight_decay=0.01,
+    push_to_hub=False
+)
 
 trainer = Trainer(
-    model,
-    training_args,
-    train_dataset=tokenized_datasets,
-    data_collator=data_collator,
-    tokenizer=tokenizer,
-    compute_metrics=compute_metrics)
+    model=model,
+    args=training_args,
+    train_dataset=lm_datasets,
+    eval_dataset=lm_datasets,
+)
 
 trainer.train()
 
-trainer.evaluate(tokenized_datasets)
+eval_results = trainer.evaluate()
+print(f"Perplexity: {math.exp(eval_results['eval_loss']):.2f}")
