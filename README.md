@@ -18,3 +18,6 @@ Once again, we use the Hugging Face library to train our model. But before we ca
 
 ## 🥹Phase 5: Training
 Once everything was passed in, we could train the model with the **trainer.train()** line.
+
+## 😎Phase 6: Evaluation and Output
+Welp. The hard part is over.  Because our model generates output, we decided to evaluae the perplexity, Evaluation Loss, and BLEU score.  We are also in the process of getting the model to generate output.
