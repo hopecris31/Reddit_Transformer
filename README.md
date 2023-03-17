@@ -1,5 +1,5 @@
 # ChatRPT(Reddit Pretrained Transformer)
-
+##NOTE: the main file is named "Reddit Pretrained Transformer Colab". If you are here to grade this project, look at that file, and not the others.  If you are looking to run the code with the saved model from google drive, then run the Colab named "RPT load from drive colab." Make sure your exact filepaths are the same as stated in the program, or you will encounter errors. 
 ###### Goal: To fine-tune GPT-2 with a Reddit comment corpus.  When the program user enters the beginning of a phrase or sentence, the program should finish the phrase or sentence in a way that "sounds like a Redditor" (or at least an answer that Reddit would have probably given). This Project was inspired by our N-Gram Language Model project, along with the Fine-Tuning a Pre-Trained Model class programming activity.
 
 ## 🤩Phase 1: Loading the Dataset
